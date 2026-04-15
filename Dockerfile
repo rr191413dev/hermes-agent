@@ -6,6 +6,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/hermes/.playwright
 ENV HERMES_HOME=/opt/data
 ENV PATH="/opt/hermes/.venv/bin:$PATH"
+ENV HERMES_UID=0   # 強制 root 運行，避免用戶問題
 
 # 安裝系統依賴
 RUN apt-get update && \
@@ -19,11 +20,7 @@ COPY --from=uv_source /usr/local/bin/uvx /usr/local/bin/uvx
 
 WORKDIR /opt/hermes
 
-# 先複製核心依賴定義檔案（讓 Docker layer cache 更有效）
-COPY pyproject.toml ./
-COPY requirements.txt ./
-
-# 複製整個專案程式碼（包含 scripts 等）
+# 複製整個專案
 COPY . .
 
 # 安裝 Node 依賴和 Playwright
@@ -33,11 +30,11 @@ RUN npm install --prefer-offline --no-audit && \
     npm install --prefer-offline --no-audit && \
     npm cache clean --force
 
-# 使用 uv 建立 venv 並安裝 Python 依賴（這一步會解決 PyYAML 等問題）
+# 使用 uv 建立 venv 並安裝 Python 依賴（解決 PyYAML 等問題）
 RUN uv venv && \
     uv pip install --no-cache-dir -e ".[all]"
 
-# 權限與 entrypoint 準備
+# 準備 entrypoint（保留官方腳本，但強制 root）
 RUN chmod +x docker/entrypoint.sh
 
 VOLUME [ "/opt/data" ]
