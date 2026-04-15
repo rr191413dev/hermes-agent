@@ -1,12 +1,13 @@
 FROM ghcr.io/astral-sh/uv:0.11.6-python3.13-trixie@sha256:b3c543b6c4f23a5f2df22866bd7857e5d304b67a564f4feab6ac22044dde719b AS uv_source
 FROM debian:13.4
 
+# 環境變數
 ENV PYTHONUNBUFFERED=1
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/hermes/.playwright
 ENV HERMES_HOME=/opt/data
 ENV PATH="/opt/hermes/.venv/bin:$PATH"
 
-# 安裝系統依賴（包含 uv 需要的 build tools）
+# 安裝系統依賴
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential nodejs npm python3 ripgrep ffmpeg gcc python3-dev libffi-dev procps git \
@@ -18,13 +19,11 @@ COPY --from=uv_source /usr/local/bin/uvx /usr/local/bin/uvx
 
 WORKDIR /opt/hermes
 
-# 先複製依賴相關檔案，讓 Docker cache 更有效
+# 先複製核心依賴定義檔案（讓 Docker layer cache 更有效）
 COPY pyproject.toml ./
 COPY requirements.txt ./
-COPY README.md ./
-COPY setup.py ./ 2>/dev/null || true
 
-# 複製整個專案
+# 複製整個專案程式碼（包含 scripts 等）
 COPY . .
 
 # 安裝 Node 依賴和 Playwright
@@ -34,11 +33,11 @@ RUN npm install --prefer-offline --no-audit && \
     npm install --prefer-offline --no-audit && \
     npm cache clean --force
 
-# 建立 venv 並安裝 Python 依賴（使用 uv，關鍵步驟）
+# 使用 uv 建立 venv 並安裝 Python 依賴（這一步會解決 PyYAML 等問題）
 RUN uv venv && \
     uv pip install --no-cache-dir -e ".[all]"
 
-# 權限處理（Zeabur 通常以 root 運行）
+# 權限與 entrypoint 準備
 RUN chmod +x docker/entrypoint.sh
 
 VOLUME [ "/opt/data" ]
