@@ -34,14 +34,16 @@ if [ -d "$INSTALL_DIR/skills" ]; then
     python3 "$INSTALL_DIR/tools/skills_sync.py" || echo "⚠️ Warning: skills_sync.py failed"
 fi
 
-echo "🚀 Starting hermes in background mode..."
+echo "🚀 Starting hermes gateway in background mode..."
 
-# 背景運行 hermes（使用 gateway 或 chat 模式，視你的 config.yaml 而定）
-# 如果你主要用 gateway（如 Telegram/Discord/WhatsApp），建議改用 hermes gateway
-# 這裡先用最穩定的方式：直接運行主模組 + tail 保持容器 alive
 cd "$INSTALL_DIR"
-nohup .venv/bin/python -m hermes_cli.main >> "$HERMES_HOME/logs/hermes.log" 2>&1 &
+mkdir -p "$HERMES_HOME/logs"
 
-# 保持容器前台運行，持續輸出 log（Zeabur 需要主進程不退出）
-echo "📋 Hermes log tail started. Check $HERMES_HOME/logs/hermes.log for details."
-tail -f "$HERMES_HOME/logs/hermes.log"
+# 使用絕對路徑啟用 venv
+. "$INSTALL_DIR/.venv/bin/activate"
+
+nohup hermes gateway >> "$HERMES_HOME/logs/hermes.log" 2>&1 &
+
+echo "📋 Hermes gateway started. Check logs: $HERMES_HOME/logs/hermes.log"
+sleep 3
+tail -f "$HERMES_HOME/logs/hermes.log" || tail -f /dev/null
