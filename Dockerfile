@@ -12,12 +12,8 @@ RUN apt-get update && \
         build-essential nodejs npm python3 ripgrep ffmpeg gcc python3-dev libffi-dev procps git gosu \
     && rm -rf /var/lib/apt/lists/*
 
-# 建立 hermes 用戶（解決 usermod 錯誤）
-RUN useradd -u 10000 -m -d /opt/data hermes
-
 COPY --from=uv_source /usr/local/bin/uv /usr/local/bin/uv
 COPY --from=uv_source /usr/local/bin/uvx /usr/local/bin/uvx
-COPY --from=uv_source /usr/local/bin/gosu /usr/local/bin/gosu || true
 
 WORKDIR /opt/hermes
 
