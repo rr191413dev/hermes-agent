@@ -1,43 +1,41 @@
 #!/bin/bash
-# Docker entrypoint for Zeabur: bootstrap config files into the mounted volume, then run hermes.
-# Modified for Zeabur compatibility: skip user switching (hermes user does not exist in this env)
+# Docker entrypoint for Zeabur: bootstrap config files, then run hermes in non-interactive mode.
+# Modified for Zeabur: skip user switch, run as root, avoid TUI.
 
 set -e
 
 HERMES_HOME="${HERMES_HOME:-/opt/data}"
 INSTALL_DIR="/opt/hermes"
 
-# --- Zeabur 專用：強制 root 運行，跳過原本的 gosu / usermod 邏輯 ---
 echo "🚀 Running in Zeabur root-compatible mode (skipping hermes user switch)"
 
-# --- Running as root from here ---
+# --- Running as root ---
 source "${INSTALL_DIR}/.venv/bin/activate"
 
-# Create essential directory structure
+# 建立必要目錄與初始化檔案（保留官方功能）
 mkdir -p "$HERMES_HOME"/{cron,sessions,logs,hooks,memories,skills,skins,plans,workspace,home}
 
-# .env
 if [ ! -f "$HERMES_HOME/.env" ]; then
     cp "$INSTALL_DIR/.env.example" "$HERMES_HOME/.env"
     echo "✅ Created .env from example"
 fi
 
-# config.yaml
 if [ ! -f "$HERMES_HOME/config.yaml" ]; then
     cp "$INSTALL_DIR/cli-config.yaml.example" "$HERMES_HOME/config.yaml"
     echo "✅ Created config.yaml from example"
 fi
 
-# SOUL.md
 if [ ! -f "$HERMES_HOME/SOUL.md" ]; then
     cp "$INSTALL_DIR/docker/SOUL.md" "$HERMES_HOME/SOUL.md"
     echo "✅ Created SOUL.md"
 fi
 
-# Sync bundled skills (manifest-based so user edits are preserved)
 if [ -d "$INSTALL_DIR/skills" ]; then
     python3 "$INSTALL_DIR/tools/skills_sync.py" || echo "⚠️ Warning: skills_sync.py failed"
 fi
 
-echo "🚀 Starting hermes..."
-exec hermes "$@"
+echo "🚀 Starting hermes in non-interactive mode..."
+# 關鍵：用 --non-interactive 或直接以 daemon 方式運行（避免 TUI 退出）
+# 如果 hermes 支持 background 模式，或用 nohup / tail -f 保持容器 alive
+exec nohup hermes --non-interactive "$@" > "$HERMES_HOME/logs/hermes.log" 2>&1 &
+tail -f "$HERMES_HOME/logs/hermes.log"   # 保持容器前台運行，輸出 logs
