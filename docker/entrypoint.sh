@@ -1,6 +1,6 @@
 #!/bin/bash
-# Docker entrypoint for Zeabur: bootstrap config files, then run hermes in non-interactive mode.
-# Modified for Zeabur: skip user switch, run as root, avoid TUI.
+# Docker entrypoint for Zeabur: bootstrap config files, then run hermes in background mode.
+# Modified for Zeabur: skip user switch, run as root, keep container alive.
 
 set -e
 
@@ -12,7 +12,7 @@ echo "🚀 Running in Zeabur root-compatible mode (skipping hermes user switch)"
 # --- Running as root ---
 source "${INSTALL_DIR}/.venv/bin/activate"
 
-# 建立必要目錄與初始化檔案（保留官方功能）
+# 建立必要目錄與初始化檔案
 mkdir -p "$HERMES_HOME"/{cron,sessions,logs,hooks,memories,skills,skins,plans,workspace,home}
 
 if [ ! -f "$HERMES_HOME/.env" ]; then
@@ -34,8 +34,14 @@ if [ -d "$INSTALL_DIR/skills" ]; then
     python3 "$INSTALL_DIR/tools/skills_sync.py" || echo "⚠️ Warning: skills_sync.py failed"
 fi
 
-echo "🚀 Starting hermes in non-interactive mode..."
-# 關鍵：用 --non-interactive 或直接以 daemon 方式運行（避免 TUI 退出）
-# 如果 hermes 支持 background 模式，或用 nohup / tail -f 保持容器 alive
-exec nohup hermes --non-interactive "$@" > "$HERMES_HOME/logs/hermes.log" 2>&1 &
-tail -f "$HERMES_HOME/logs/hermes.log"   # 保持容器前台運行，輸出 logs
+echo "🚀 Starting hermes in background mode..."
+
+# 背景運行 hermes（使用 gateway 或 chat 模式，視你的 config.yaml 而定）
+# 如果你主要用 gateway（如 Telegram/Discord/WhatsApp），建議改用 hermes gateway
+# 這裡先用最穩定的方式：直接運行主模組 + tail 保持容器 alive
+cd "$INSTALL_DIR"
+nohup .venv/bin/python -m hermes_cli.main >> "$HERMES_HOME/logs/hermes.log" 2>&1 &
+
+# 保持容器前台運行，持續輸出 log（Zeabur 需要主進程不退出）
+echo "📋 Hermes log tail started. Check $HERMES_HOME/logs/hermes.log for details."
+tail -f "$HERMES_HOME/logs/hermes.log"
