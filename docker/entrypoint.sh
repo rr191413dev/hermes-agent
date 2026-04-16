@@ -1,23 +1,19 @@
 #!/bin/bash
-# Docker entrypoint for Zeabur: bootstrap config files, then run hermes (root mode)
+# Docker entrypoint for Zeabur: bootstrap config files into the mounted volume, then run hermes.
+# Modified for Zeabur compatibility: skip user switching (hermes user does not exist in this env)
+
 set -e
 
 HERMES_HOME="${HERMES_HOME:-/opt/data}"
 INSTALL_DIR="/opt/hermes"
 
-# --- Zeabur 專用：強制 root 運行，跳過 hermes 用戶切換 ---
-# 註解掉原本的 gosu / usermod 邏輯，避免 "user 'hermes' does not exist" 錯誤
+# --- Zeabur 專用：強制 root 運行，跳過原本的 gosu / usermod 邏輯 ---
+echo "🚀 Running in Zeabur root-compatible mode (skipping hermes user switch)"
 
-# if [ "$(id -u)" = "0" ]; then
-#     ...（原本的 privilege dropping 區塊全部註解或刪除）
-# fi
-
-# --- 直接以 root 繼續執行初始化 ---
-echo "Running as root (Zeabur compatible mode)"
-
+# --- Running as root from here ---
 source "${INSTALL_DIR}/.venv/bin/activate"
 
-# 建立必要目錄
+# Create essential directory structure
 mkdir -p "$HERMES_HOME"/{cron,sessions,logs,hooks,memories,skills,skins,plans,workspace,home}
 
 # .env
@@ -38,9 +34,9 @@ if [ ! -f "$HERMES_HOME/SOUL.md" ]; then
     echo "✅ Created SOUL.md"
 fi
 
-# Sync bundled skills
+# Sync bundled skills (manifest-based so user edits are preserved)
 if [ -d "$INSTALL_DIR/skills" ]; then
-    python3 "$INSTALL_DIR/tools/skills_sync.py" || echo "Warning: skills_sync.py failed"
+    python3 "$INSTALL_DIR/tools/skills_sync.py" || echo "⚠️ Warning: skills_sync.py failed"
 fi
 
 echo "🚀 Starting hermes..."
